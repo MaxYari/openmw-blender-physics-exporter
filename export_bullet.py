@@ -1,7 +1,21 @@
+
+
+bl_info = {
+    "name": "Bullet JSON Exporter",
+    "author": "Thrax",
+    "version": (1, 0),
+    "blender": (3, 3, 1),
+    "location": "File > Export > Bullet JSON (.json)",
+    "description": "Exports scenes to Bullet JSON format",
+    "category": "Import-Export",
+}
+
+
 import os
 import json
 import mathutils
 import bpy
+from bpy_extras.io_utils import ExportHelper
 
 def getOffsetFromAToB(a, b):
 	ta, ra, sa = a.matrix_world.decompose()
@@ -137,4 +151,29 @@ def save(context, path):
 	f = open(path, 'w')
 	f.write(jsonText)
 	f.close()
-	
+
+
+
+class ExportBulletJSON(bpy.types.Operator, ExportHelper):
+    bl_idname = "export_bullet.json"
+    bl_label = "Export Bullet JSON"
+    
+    filename_ext = ".json"
+
+    def execute(self, context):
+        save(context, self.filepath)  # Call your existing save function
+        return {'FINISHED'}
+
+def menu_func_export(self, context):
+    self.layout.operator(ExportBulletJSON.bl_idname, text="Bullet JSON (.json)")
+
+def register():
+    bpy.utils.register_class(ExportBulletJSON)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
+
+def unregister():
+    bpy.utils.unregister_class(ExportBulletJSON)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
+
+if __name__ == "__main__":
+    register()
