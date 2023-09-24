@@ -39,9 +39,34 @@ def save(context, path):
     jsonObject["gravity"] = scene.gravity[:]
     jsonObject["rigid_bodys"] = []
     jsonObject["constraints"] = []
+    jsonObject["bone_constraints"] = []
 
+    print("----------BULLET EXPORT V2 Parsing scene----------")
     for obj in scene.objects:
-        
+        if obj.type == 'ARMATURE':
+            print(f"Checking armature: {obj.name}")
+            
+            # Loop through its pose bones
+            for pose_bone in obj.pose.bones:
+                
+                # Check each constraint for the pose bone
+                for constraint in pose_bone.constraints:
+                    
+                    # If the constraint is a 'CHILD_OF' type, log its details
+                    if constraint.type == 'CHILD_OF':
+                        print(f"  Bone: {pose_bone.name}")
+                        print(f"    Constraint: {constraint.name}")
+                        print(f"      Type: {constraint.type}")
+                        print(f"      Target: {constraint.target}")
+                        print(f"      Subtarget: {constraint.subtarget}")
+                        print(f"      Inverse Matrix: {constraint.inverse_matrix}")
+                        print(f"      Influence: {constraint.influence}")
+                        boneConstraint = {}
+                        boneConstraint["bone"] = pose_bone.name
+                        boneConstraint["parent"] = constraint.target.name
+                        boneConstraint["inverse_matrix"] = [element for row in constraint.inverse_matrix for element in row]
+                        boneConstraint["influence"] = constraint.influence
+                        jsonObject["bone_constraints"].append(boneConstraint)
 
         if obj.rigid_body is not None:
             transform = obj.matrix_world
