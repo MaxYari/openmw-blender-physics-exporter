@@ -40,6 +40,11 @@ def save(context, path):
     jsonObject["rigid_bodys"] = []
     jsonObject["constraints"] = []
     jsonObject["bone_constraints"] = []
+    def show_error(message):
+        def draw_func(self, context):
+            self.layout.label(text=message)
+            
+        bpy.context.window_manager.popup_menu(draw_func, title="An error occurred", icon='ERROR')
 
     print("----------BULLET EXPORT V2 Parsing scene----------")
     for obj in scene.objects:
@@ -63,7 +68,11 @@ def save(context, path):
                         print(f"      Influence: {constraint.influence}")
                         boneConstraint = {}
                         boneConstraint["bone"] = pose_bone.name
-                        boneConstraint["parent"] = constraint.target.name
+                        if constraint.target != None:
+                            boneConstraint["parent"] = constraint.target.name
+                        else:
+                            print(f">-------------------------------- ERROR: {pose_bone.name}")
+                            show_error(f"Bone parent undefined! {pose_bone.name}")
                         boneConstraint["inverse_matrix"] = [element for row in constraint.inverse_matrix for element in row]
                         boneConstraint["influence"] = constraint.influence
                         jsonObject["bone_constraints"].append(boneConstraint)
@@ -82,9 +91,18 @@ def save(context, path):
             rigidBodyObject["friction"] = obj.rigid_body.friction
             rigidBodyObject["restitution"] = obj.rigid_body.restitution
             rigidBodyObject["collision_shape"] = obj.rigid_body.collision_shape
+            rigidBodyObject["collision_collections"] = [int(x) for x in obj.rigid_body.collision_collections]
+            
             rigidBodyObject["use_margin"] = obj.rigid_body.use_margin
             rigidBodyObject["collision_margin"] = obj.rigid_body.collision_margin
-            #print(dir(obj.rigid_body))
+            rigidBodyObject["angular_damping"] = obj.rigid_body.angular_damping
+            rigidBodyObject["linear_damping"] = obj.rigid_body.collision_margin
+            rigidBodyObject["deactivate_angular_velocity"] = obj.rigid_body.deactivate_angular_velocity
+            rigidBodyObject["deactivate_linear_velocity"] = obj.rigid_body.deactivate_linear_velocity
+            rigidBodyObject["use_deactivation"] = obj.rigid_body.use_deactivation
+            rigidBodyObject["use_start_deactivated"] = obj.rigid_body.use_start_deactivated
+            print("----------",obj.name)
+            print(dir(obj.rigid_body))
             group = 0
             for i in range(0, len(obj.rigid_body.collision_collections)):
                 if obj.rigid_body.collision_collections[i]:
@@ -190,6 +208,7 @@ def save(context, path):
             jsonObject["constraints"].append(rigidBodyConstraintObject)
 
     jsonText = json.dumps(jsonObject)
+    bpy.context.scene['physics_scene'] = jsonText
     f = open(path, 'w')
     f.write(jsonText)
     f.close()
