@@ -1,12 +1,12 @@
 
 
 bl_info = {
-    "name": "Bullet JSON Exporter",
-    "author": "xionglong.xu and Thrax",
+    "name": "OpenMW Physics Exporter",
+    "author": "xionglong.xu, Thrax, Maksim Eremenko (Max Yari)",
     "version": (1, 0),
     "blender": (3, 3, 1),
-    "location": "File > Export > Bullet JSON (.json)",
-    "description": "Exports scenes to Bullet JSON format",
+    "location": "File > Export > OpenMW Physics JSON (.json)",
+    "description": "Exports physics scenes to JSON format",
     "category": "Import-Export",
 }
 
@@ -32,9 +32,9 @@ def getOffsetFromAToB(a, b):
     #tOffset.z = tOffset.z / sa.z
     return tOffset, rOffset
 
-def save(context, path):
+def save(context: bpy.types.Context, path):
     jsonObject = {}
-
+    
     scene = context.scene
     jsonObject["gravity"] = scene.gravity[:]
     jsonObject["rigid_bodys"] = []
@@ -46,48 +46,27 @@ def save(context, path):
             
         bpy.context.window_manager.popup_menu(draw_func, title="An error occurred", icon='ERROR')
 
-    print("----------BULLET EXPORT V2 Parsing scene----------")
+    print("----------BULLET EXPORT V2.1 Parsing scene----------")
     for obj in scene.objects:
-        if obj.type == 'ARMATURE':
-            print(f"Checking armature: {obj.name}")
-            
-            # Loop through its pose bones
-            for pose_bone in obj.pose.bones:
-                
-                # Check each constraint for the pose bone
-                for constraint in pose_bone.constraints:
-                    
-                    # If the constraint is a 'CHILD_OF' type, log its details
-                    if constraint.type == 'CHILD_OF':
-                        print(f"  Bone: {pose_bone.name}")
-                        print(f"    Constraint: {constraint.name}")
-                        print(f"      Type: {constraint.type}")
-                        print(f"      Target: {constraint.target}")
-                        print(f"      Subtarget: {constraint.subtarget}")
-                        print(f"      Inverse Matrix: {constraint.inverse_matrix}")
-                        print(f"      Influence: {constraint.influence}")
-                        boneConstraint = {}
-                        boneConstraint["bone"] = pose_bone.name
-                        if constraint.target != None:
-                            boneConstraint["parent"] = constraint.target.name
-                        else:
-                            print(f">-------------------------------- ERROR: {pose_bone.name}")
-                            show_error(f"Bone parent undefined! {pose_bone.name}")
-                        boneConstraint["inverse_matrix"] = [element for row in constraint.inverse_matrix for element in row]
-                        boneConstraint["influence"] = constraint.influence
-                        jsonObject["bone_constraints"].append(boneConstraint)
-
+        
         if obj.rigid_body is not None:
-            transform = obj.matrix_world
-            location, quaternion, scale = transform.decompose()
+
+            is_static = obj.rigid_body.type == 'PASSIVE' or not obj.rigid_body.enabled
+            parent_name = "__root__" if obj.parent is None else obj.parent.name
+
+            scene_transform = obj.matrix_world
+            local_transform = obj.matrix_local
+            loc_w, rot_w, scale_w = scene_transform.decompose()
+            loc_l, rot_l, scale_l = local_transform.decompose()
             rigidBodyObject = {}
             rigidBodyObject["name"] = obj.name
-            rigidBodyObject["location"] = location[0:3]
-            rigidBodyObject["quaternion"] = quaternion[0:4]
-            rigidBodyObject["static"] = obj.rigid_body.type == 'PASSIVE'
-            rigidBodyObject["enabled"] = obj.rigid_body.enabled
-            rigidBodyObject["kinematic"] = obj.rigid_body.kinematic
-            rigidBodyObject["mass"] = 0 if obj.rigid_body.type == 'PASSIVE' else obj.rigid_body.mass
+            rigidBodyObject["parent_node_name"] = parent_name
+            rigidBodyObject["scene_location"] = loc_w[0:3]
+            rigidBodyObject["scene_rotation"] = rot_w[0:4]
+            rigidBodyObject["local_location"] = loc_l[0:3]
+            rigidBodyObject["local_rotation"] = rot_l[0:4]
+            rigidBodyObject["static"] = is_static
+            rigidBodyObject["mass"] = 0 if is_static else obj.rigid_body.mass
             rigidBodyObject["friction"] = obj.rigid_body.friction
             rigidBodyObject["restitution"] = obj.rigid_body.restitution
             rigidBodyObject["collision_shape"] = obj.rigid_body.collision_shape
@@ -102,6 +81,7 @@ def save(context, path):
             rigidBodyObject["use_deactivation"] = obj.rigid_body.use_deactivation
             rigidBodyObject["use_start_deactivated"] = obj.rigid_body.use_start_deactivated
             print("----------",obj.name)
+            print("Parent",parent_name)
             print(dir(obj.rigid_body))
             group = 0
             for i in range(0, len(obj.rigid_body.collision_collections)):
@@ -216,8 +196,8 @@ def save(context, path):
 
 
 class ExportBulletJSON(bpy.types.Operator, ExportHelper):
-    bl_idname = "export_bullet.json"
-    bl_label = "Export Bullet JSON"
+    bl_idname = "openmw_physics.json"
+    bl_label = "OpenMW Physics JSON"
     
     filename_ext = ".json"
 
@@ -226,7 +206,7 @@ class ExportBulletJSON(bpy.types.Operator, ExportHelper):
         return {'FINISHED'}
 
 def menu_func_export(self, context):
-    self.layout.operator(ExportBulletJSON.bl_idname, text="Bullet JSON (.json)")
+    self.layout.operator(ExportBulletJSON.bl_idname, text="OpenMW Physics (.json)")
 
 def register():
     bpy.utils.register_class(ExportBulletJSON)
