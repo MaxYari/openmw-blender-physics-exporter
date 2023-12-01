@@ -37,7 +37,7 @@ def save(context: bpy.types.Context, path):
     
     scene = context.scene
     jsonObject["gravity"] = scene.gravity[:]
-    jsonObject["rigid_bodys"] = []
+    jsonObject["rigid_bodies"] = []
     jsonObject["constraints"] = []
     jsonObject["bone_constraints"] = []
     def show_error(message):
@@ -56,14 +56,14 @@ def save(context: bpy.types.Context, path):
 
             scene_transform = obj.matrix_world
             local_transform = obj.matrix_local
-            loc_w, rot_w, scale_w = scene_transform.decompose()
-            loc_l, rot_l, scale_l = local_transform.decompose()
+            pos_w, rot_w, scale_w = scene_transform.decompose()
+            pos_l, rot_l, scale_l = local_transform.decompose()
             rigidBodyObject = {}
             rigidBodyObject["name"] = obj.name
             rigidBodyObject["parent_node_name"] = parent_name
-            rigidBodyObject["scene_location"] = loc_w[0:3]
+            rigidBodyObject["scene_position"] = pos_w[0:3]
             rigidBodyObject["scene_rotation"] = rot_w[0:4]
-            rigidBodyObject["local_location"] = loc_l[0:3]
+            rigidBodyObject["local_position"] = pos_l[0:3]
             rigidBodyObject["local_rotation"] = rot_l[0:4]
             rigidBodyObject["static"] = is_static
             rigidBodyObject["mass"] = 0 if is_static else obj.rigid_body.mass
@@ -89,7 +89,7 @@ def save(context: bpy.types.Context, path):
                     group = group | (1 << i)
             rigidBodyObject["group"] = group
             rigidBodyObject["mask"] = group
-            jsonObject["rigid_bodys"].append(rigidBodyObject)
+            jsonObject["rigid_bodies"].append(rigidBodyObject)
 
 
         if obj.rigid_body_constraint is not None:
