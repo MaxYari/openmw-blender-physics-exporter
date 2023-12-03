@@ -33,6 +33,9 @@ def getOffsetFromAToB(a, b):
     return tOffset, rOffset
 
 def save(context: bpy.types.Context, path):
+    omwaddon = bpy.context.preferences.addons["io_scene_mw"]
+    scaleMult = 1/omwaddon.preferences.scale_correction
+    
     jsonObject = {}
     
     scene = context.scene
@@ -49,7 +52,7 @@ def save(context: bpy.types.Context, path):
     print("----------BULLET EXPORT V2.1 Parsing scene----------")
     for obj in scene.objects:
         
-        if obj.rigid_body is not None:
+        if obj.rigid_body is not None and not obj.hide_render:
 
             is_static = obj.rigid_body.type == 'PASSIVE' or not obj.rigid_body.enabled
             parent_name = "__root__" if obj.parent is None else obj.parent.name
@@ -58,9 +61,15 @@ def save(context: bpy.types.Context, path):
             local_transform = obj.matrix_local
             pos_w, rot_w, scale_w = scene_transform.decompose()
             pos_l, rot_l, scale_l = local_transform.decompose()
+            pos_w *= scaleMult
+            pos_l *= scaleMult
+
+            dimensions = obj.dimensions * scaleMult
+
             rigidBodyObject = {}
             rigidBodyObject["name"] = obj.name
             rigidBodyObject["parent_node_name"] = parent_name
+            rigidBodyObject["dimensions"] = dimensions[0:3]
             rigidBodyObject["scene_position"] = pos_w[0:3]
             rigidBodyObject["scene_rotation"] = rot_w[0:4]
             rigidBodyObject["local_position"] = pos_l[0:3]
@@ -69,6 +78,8 @@ def save(context: bpy.types.Context, path):
             rigidBodyObject["mass"] = 0 if is_static else obj.rigid_body.mass
             rigidBodyObject["friction"] = obj.rigid_body.friction
             rigidBodyObject["restitution"] = obj.rigid_body.restitution
+            # TO DO: Export a list of vertices for a convex hull shape, possibly also break if the shape is too complex (>42 vertices)
+            # then in the engine we can simply plug the vertices into the convex hull without any modifications
             rigidBodyObject["collision_shape"] = obj.rigid_body.collision_shape
             rigidBodyObject["collision_collections"] = [int(x) for x in obj.rigid_body.collision_collections]
             
@@ -107,6 +118,7 @@ def save(context: bpy.types.Context, path):
             if object1 is not None:
                 rigidBodyConstraintObject["object1"] = object1.name
                 tOffset, rOffset = getOffsetFromAToB(object1, obj)
+                tOffset *= scaleMult
                 rigidBodyConstraintObject["translation_offset_a"] = tOffset[0:3]
                 rigidBodyConstraintObject["rotation_offset_a"] = rOffset[0:4]
 
@@ -114,6 +126,7 @@ def save(context: bpy.types.Context, path):
             if object2 is not None:
                 rigidBodyConstraintObject["object2"] = object2.name
                 tOffset, rOffset = getOffsetFromAToB(object2, obj)
+                tOffset *= scaleMult
                 rigidBodyConstraintObject["translation_offset_b"] = tOffset[0:3]
                 rigidBodyConstraintObject["rotation_offset_b"] = rOffset[0:4]
             
@@ -136,26 +149,36 @@ def save(context: bpy.types.Context, path):
                     rigidBodyConstraintObject["use_motor_ang"] = obj.rigid_body_constraint.use_motor_ang
                     rigidBodyConstraintObject["use_motor_lin"] = obj.rigid_body_constraint.use_motor_lin
             elif constraintType == 'SLIDER':
+                limit_low = obj.rigid_body_constraint.limit_lin_x_lower * scaleMult
+                limit_up = obj.rigid_body_constraint.limit_lin_x_upper * scaleMult
                 rigidBodyConstraintObject["use_limit_lin_x"] = obj.rigid_body_constraint.use_limit_lin_x
-                rigidBodyConstraintObject["limit_lin_x_lower"] = obj.rigid_body_constraint.limit_lin_x_lower
-                rigidBodyConstraintObject["limit_lin_x_upper"] = obj.rigid_body_constraint.limit_lin_x_upper
+                rigidBodyConstraintObject["limit_lin_x_lower"] = limit_low
+                rigidBodyConstraintObject["limit_lin_x_upper"] = limit_up
             elif constraintType == 'PISTON':
+                limit_low = obj.rigid_body_constraint.limit_lin_x_lower * scaleMult
+                limit_up = obj.rigid_body_constraint.limit_lin_x_upper * scaleMult
                 rigidBodyConstraintObject["use_limit_lin_x"] = obj.rigid_body_constraint.use_limit_lin_x
-                rigidBodyConstraintObject["limit_lin_x_lower"] = obj.rigid_body_constraint.limit_lin_x_lower
-                rigidBodyConstraintObject["limit_lin_x_upper"] = obj.rigid_body_constraint.limit_lin_x_upper
+                rigidBodyConstraintObject["limit_lin_x_lower"] = limit_low
+                rigidBodyConstraintObject["limit_lin_x_upper"] = limit_up
                 rigidBodyConstraintObject["use_limit_ang_x"] = obj.rigid_body_constraint.use_limit_ang_x
                 rigidBodyConstraintObject["limit_ang_x_lower"] = obj.rigid_body_constraint.limit_ang_x_lower
                 rigidBodyConstraintObject["limit_ang_x_upper"] = obj.rigid_body_constraint.limit_ang_x_upper
             elif constraintType == 'GENERIC' or constraintType == 'GENERIC_SPRING':
+                lim_x_low = obj.rigid_body_constraint.limit_lin_x_lower * scaleMult
+                lim_x_up = obj.rigid_body_constraint.limit_lin_x_upper * scaleMult
+                lim_y_low = obj.rigid_body_constraint.limit_lin_y_lower * scaleMult
+                lim_y_up = obj.rigid_body_constraint.limit_lin_y_upper * scaleMult
+                lim_z_low = obj.rigid_body_constraint.limit_lin_z_lower * scaleMult
+                lim_z_up = obj.rigid_body_constraint.limit_lin_z_upper * scaleMult
                 rigidBodyConstraintObject["use_limit_lin_x"] = obj.rigid_body_constraint.use_limit_lin_x
-                rigidBodyConstraintObject["limit_lin_x_lower"] = obj.rigid_body_constraint.limit_lin_x_lower
-                rigidBodyConstraintObject["limit_lin_x_upper"] = obj.rigid_body_constraint.limit_lin_x_upper
+                rigidBodyConstraintObject["limit_lin_x_lower"] = lim_x_low
+                rigidBodyConstraintObject["limit_lin_x_upper"] = lim_x_up
                 rigidBodyConstraintObject["use_limit_lin_y"] = obj.rigid_body_constraint.use_limit_lin_y
-                rigidBodyConstraintObject["limit_lin_y_lower"] = obj.rigid_body_constraint.limit_lin_y_lower
-                rigidBodyConstraintObject["limit_lin_y_upper"] = obj.rigid_body_constraint.limit_lin_y_upper
+                rigidBodyConstraintObject["limit_lin_y_lower"] = lim_y_low
+                rigidBodyConstraintObject["limit_lin_y_upper"] = lim_y_up
                 rigidBodyConstraintObject["use_limit_lin_z"] = obj.rigid_body_constraint.use_limit_lin_z
-                rigidBodyConstraintObject["limit_lin_z_lower"] = obj.rigid_body_constraint.limit_lin_z_lower
-                rigidBodyConstraintObject["limit_lin_z_upper"] = obj.rigid_body_constraint.limit_lin_z_upper
+                rigidBodyConstraintObject["limit_lin_z_lower"] = lim_z_low
+                rigidBodyConstraintObject["limit_lin_z_upper"] = lim_z_up
                 rigidBodyConstraintObject["use_limit_ang_x"] = obj.rigid_body_constraint.use_limit_ang_x
                 rigidBodyConstraintObject["limit_ang_x_lower"] = obj.rigid_body_constraint.limit_ang_x_lower
                 rigidBodyConstraintObject["limit_ang_x_upper"] = obj.rigid_body_constraint.limit_ang_x_upper
@@ -166,6 +189,7 @@ def save(context: bpy.types.Context, path):
                 rigidBodyConstraintObject["limit_ang_z_lower"] = obj.rigid_body_constraint.limit_ang_z_lower
                 rigidBodyConstraintObject["limit_ang_z_upper"] = obj.rigid_body_constraint.limit_ang_z_upper
                 if constraintType == 'GENERIC_SPRING':
+                    # Do any of string properties need to be adjusted by morrowind scale?
                     rigidBodyConstraintObject["use_spring_x"] = obj.rigid_body_constraint.use_spring_x
                     rigidBodyConstraintObject["spring_stiffness_x"] = obj.rigid_body_constraint.spring_stiffness_x
                     rigidBodyConstraintObject["spring_damping_x"] = obj.rigid_body_constraint.spring_damping_x

@@ -1,5 +1,5 @@
 bl_info = {
-	"name": "Bullet json format",
+	"name": "OpenMW Physics Exporter",
 	"author": "xionglong.xu",
 	"version": (0, 0, 1),
 	"blender": (2, 80, 0),
@@ -9,8 +9,6 @@ bl_info = {
 
 if "bpy" in locals():
     import importlib
-    if "import_bullet" in locals():
-        importlib.reload(import_bullet)
     if "export_bullet" in locals():
         importlib.reload(export_bullet)
 
@@ -19,7 +17,6 @@ from bpy.props import (
 		StringProperty,
 		)
 from bpy_extras.io_utils import (
-		ImportHelper,
 		ExportHelper,
 		path_reference_mode,
 		)
